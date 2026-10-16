@@ -1,0 +1,48 @@
+# ── Секреты ──────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Веса ML-моделей (гигабайты, GitHub не принимает файлы > 100 МБ) ──────────
+bek-project/models/
+*.safetensors
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.pkl
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+env/
+*.egg-info/
+
+# ── Unity (страховка; основные правила в llm-exorcist/.gitignore) ────────────
+llm-exorcist/[Ll]ibrary/
+llm-exorcist/[Tt]emp/
+llm-exorcist/[Oo]bj/
+llm-exorcist/[Bb]uild/
+llm-exorcist/[Bb]uilds/
+llm-exorcist/[Ll]ogs/
+llm-exorcist/[Uu]ser[Ss]ettings/
+
+# ── IDE ──────────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+.vs/
+*.swp
+*.suo
+*.user
+
+# ── ОС ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Логи и временные файлы ───────────────────────────────────────────────────
+*.log
+*.tmp
+*.temp
