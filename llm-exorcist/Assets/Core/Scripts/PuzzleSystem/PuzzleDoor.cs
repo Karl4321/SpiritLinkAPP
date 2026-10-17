@@ -13,42 +13,76 @@ public class PuzzleDoor : MonoBehaviour
     [SerializeField] private GameObject _locationBeforePuzzle;
     [SerializeField] private GameObject _locationAfterPuzzle;
 
+    private bool _isOpened;
+
     private void Start()
     {
-        _locationBeforePuzzle.SetActive(true);
-        _locationAfterPuzzle.SetActive(false);
+        SetLocation(opened: false);
     }
 
     [ContextMenu("Open Door")]
     public void OpenDoor()
     {
-        IEnumerator FadeToChangeLocation()
+        if (_isOpened) return;
+        _isOpened = true;
+
+        StartCoroutine(OpenDoorRoutine());
+    }
+
+    private IEnumerator OpenDoorRoutine()
+    {
+        var player = Player.Instance;
+        if (player != null)
         {
-            if (Player.Instance != null)
-            {
-                Player.Instance.CanAct = false;
-            }
-            yield return StartCoroutine(_fadeScreen.Fade());
-            _locationBeforePuzzle.SetActive(false);
-            _locationAfterPuzzle.SetActive(true);
-            Player.Instance.transform.position = _afterSolvedPuzzleTransform.position;
-            StartCoroutine(_fadeScreen.Appear());
-            if (Player.Instance != null)
-            {
-                Player.Instance.CanAct = true;
-            }
+            player.CanAct = false;
         }
 
-        StartCoroutine(FadeToChangeLocation());
+        if (_fadeScreen != null)
+        {
+            yield return StartCoroutine(_fadeScreen.Fade());
+        }
+
+        SetLocation(opened: true);
+        if (player != null && _afterSolvedPuzzleTransform != null)
+        {
+            player.transform.position = _afterSolvedPuzzleTransform.position;
+        }
+
+        // старый триггер мог отключиться вместе с локацией, не вызвав OnTriggerExit2D
+        OnPuzzleEnd?.Invoke();
+
+        if (_fadeScreen != null)
+        {
+            StartCoroutine(_fadeScreen.Appear());
+        }
+        if (player != null)
+        {
+            player.CanAct = true;
+        }
+    }
+
+    private void SetLocation(bool opened)
+    {
+        if (_locationBeforePuzzle != null) _locationBeforePuzzle.SetActive(!opened);
+        if (_locationAfterPuzzle != null) _locationAfterPuzzle.SetActive(opened);
     }
 
     private void OnTriggerEnter2D(Collider2D collision)
     {
+        if (_isOpened || !IsPlayer(collision)) return;
+
         OnPuzzleStart?.Invoke();
     }
 
     private void OnTriggerExit2D(Collider2D collision)
     {
-        OnPuzzleEnd.Invoke();
+        if (!IsPlayer(collision)) return;
+
+        OnPuzzleEnd?.Invoke();
+    }
+
+    private static bool IsPlayer(Collider2D collision)
+    {
+        return collision.GetComponentInParent<Player>() != null;
     }
 }

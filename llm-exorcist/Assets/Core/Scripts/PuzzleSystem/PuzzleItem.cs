@@ -1,16 +1,14 @@
+using Assets.Core.Scripts.PuzzleSystem;
 using Core.Scripts.UI;
-using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace Core.Scripts.PuzzleSystem
 {
+    /// <summary>Один блок пазла. Сообщает о перетаскивании менеджеру, сам ничего не перемещает.</summary>
     public class PuzzleItem : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
-        public static event Action<PuzzleItem> OnPuzzleDrag;
-        public static event Action<PuzzleItem, PuzzleSpawner> OnPuzzleReturnedToSpawner;
-
         [field: SerializeField] public bool IsActive { get; private set; }
         [field: SerializeField] public int OrderInSequence { get; private set; }
         [field: SerializeField] public PuzzleContainer ParentContainer { get; private set; }
@@ -19,184 +17,99 @@ namespace Core.Scripts.PuzzleSystem
         [Header("Visuals")]
         [SerializeField] private TextMeshProUGUI _puzzleText;
 
-        private PuzzleItem _overlappingPuzzle; // currently static puzzle that is being overlapped by this puzzle while in drag
-        private RectTransform _rectTransform;
-        private PuzzleSpawner _spawner;
+        private RectTransform _rect;
         private HoverableObject _hoverableObject;
+        private bool _isDragged;
 
-        // todo: not sure if i need this
-        private bool _isDraggedNow;
+        public PuzzleSpawner Spawner { get; private set; }
+        public PuzzleGameManager Manager => Spawner != null ? Spawner.Manager : null;
 
-        private void Start()
+        public RectTransform Rect
         {
-            _rectTransform = GetComponent<RectTransform>();
-        }
-
-        private void OnEnable()
-        {
-            OnPuzzleDrag += Puzzle_OnPuzzleDrag;
-        }
-
-        private void OnDisable()
-        {
-            OnPuzzleDrag -= Puzzle_OnPuzzleDrag;
-        }
-
-        public void Initialize(bool isActive, int orderInSequence, string puzzleText, string puzzleShortText, string puzzleDescription)
-        {
-            IsActive = isActive;
-            OrderInSequence = orderInSequence;
-            _puzzleText.text = puzzleShortText;
-
-            if (TryGetComponent<HoverableObject>(out _hoverableObject))
+            get
             {
-                _hoverableObject.SetGlobalTransform(GetPuzzleGameManager().GetWorkspaceTransform());
-                _hoverableObject.SetHintText(puzzleText, puzzleDescription);
+                if (_rect == null) _rect = (RectTransform)transform;
+                return _rect;
             }
         }
 
-        public void OnBeginDrag(PointerEventData eventData)
+        /// <summary>Зона у нижнего края блока: если в неё попал верх перетаскиваемой цепочки, она встанет следом.</summary>
+        public RectTransform ConnectionArea => _connectionAreaRect != null ? _connectionAreaRect : Rect;
+
+        private void Awake()
         {
-            if (ParentContainer == null)
-            {
-                Debug.LogError("parent is null");
-                Destroy(gameObject);
-                return;
-            }
-
-            // if (!_wasDragged)
-            // {
-            //     CanBeConnectedTo = true;
-            //     _wasDragged = true;
-            //     OnFirstDrag?.Invoke();
-            // }
-            _hoverableObject.SetHoverTracking(false);
-            ParentContainer.HandleBeginDrag(this);
-
-            _isDraggedNow = true;
+            TryGetComponent(out _hoverableObject);
         }
 
-        public void OnDrag(PointerEventData eventData)
+        public void Initialize(PuzzleSpawner spawner, PuzzleItemDataStruct data)
         {
-            if (!_isDraggedNow) return;
+            Spawner = spawner;
+            IsActive = data.isActive;
+            OrderInSequence = data.indexInSequence;
 
-            if (ParentContainer == null)
+            if (_puzzleText != null)
             {
-                Debug.LogError("parent is null");
-                Destroy(gameObject);
-                return;
+                _puzzleText.text = data.puzzleShortText;
             }
 
-            ParentContainer.HandleDrag(this);
-
-            // if (_positionInSequence != SequencePosition.First)
-            //     OnNodeDrag?.Invoke(this);
-
-            OnPuzzleDrag?.Invoke(this);
-        }
-
-        public void OnEndDrag(PointerEventData eventData)
-        {
-            if (ParentContainer == null)
+            if (_hoverableObject == null)
             {
-                Debug.LogError("parent is null");
-                Destroy(gameObject);
-                return;
+                TryGetComponent(out _hoverableObject);
             }
-            _hoverableObject.SetHoverTracking(true);
-            ParentContainer.HandleEndDrag(this, _overlappingPuzzle);
-
-            _isDraggedNow = false;
-        }
-
-        private void Puzzle_OnPuzzleDrag(PuzzleItem draggingPuzzle)
-        {
-            if (draggingPuzzle == this) return;
-
-            // if _spawner is not null this means that this  puzzle is the child of a spawner
-            // so it is not allowed to connect to it
-            if (transform.parent.parent == _spawner.transform) return;
-
-            if (RectTransformUtility.RectangleContainsScreenPoint(_connectionAreaRect, draggingPuzzle.GetTopPoint()))
+            if (_hoverableObject != null)
             {
-                ParentContainer.OnPuzzleOverlap(this, draggingPuzzle);
-                return;
+                _hoverableObject.SetHintText(data.puzzleText, data.puzzleInfo);
             }
-
-            ParentContainer.OnPuzzleOverlapStopped(this, draggingPuzzle);
         }
-
 
         public void SetContainer(PuzzleContainer container)
         {
             ParentContainer = container;
         }
 
-        public bool TrySetOverlappingPuzzle(PuzzleItem overlappingPuzzle)
+        public void OnBeginDrag(PointerEventData eventData)
         {
-            if (_overlappingPuzzle == null)
+            _isDragged = false;
+
+            if (eventData.button != PointerEventData.InputButton.Left) return;
+
+            var manager = Manager;
+            if (manager == null || ParentContainer == null) return;
+
+            if (_hoverableObject != null)
             {
-                _overlappingPuzzle = overlappingPuzzle;
-                return true;
+                _hoverableObject.SetHoverTracking(false);
             }
-            return false;
+
+            _isDragged = manager.BeginDrag(this, eventData.position);
         }
 
-        public bool TryRemoveOverlappingPuzzle(PuzzleItem overlappingPuzzle)
+        public void OnDrag(PointerEventData eventData)
         {
-            if (_overlappingPuzzle == overlappingPuzzle)
-            {
-                _overlappingPuzzle = null;
-                return true;
-            }
-            return false;
+            if (!_isDragged) return;
+
+            Manager.Drag(eventData.position);
         }
 
-        public void CheckLocation()
+        public void OnEndDrag(PointerEventData eventData)
         {
-            if (!_spawner.GetPuzzleGameManager().IsOnWorkspace(transform.position))
+            if (!_isDragged) return;
+            _isDragged = false;
+
+            if (_hoverableObject != null)
             {
-                var targetTransform = transform;
-                _spawner.GetPuzzleGameManager().MoveToPosition(targetTransform, _spawner.transform.position, () =>
-                {
-                    ParentContainer.RemovePuzzle(this);
-                    OnPuzzleReturnedToSpawner?.Invoke(this, _spawner);
-                }, _spawner.transform);
+                _hoverableObject.SetHoverTracking(true);
             }
+
+            Manager.EndDrag(eventData.position);
         }
 
-        public bool HasOverlappingPuzzle() => _overlappingPuzzle != null;
-
+        /// <summary>Середина верхней грани блока (в экранных координатах для Overlay-канваса).</summary>
         public Vector2 GetTopPoint()
         {
-            Vector3[] corners = new Vector3[4];
-            _rectTransform.GetWorldCorners(corners);
-
-            Vector2 topLeft = corners[1];
-            Vector2 topRight = corners[2];
-
-            return (topLeft + topRight) / 2f;
-        }
-
-        public Vector2 GetBottomPoint()
-        {
-            Vector3[] corners = new Vector3[4];
-            _rectTransform.GetWorldCorners(corners);
-
-            Vector2 bottomLeft = corners[0];
-            Vector2 bottomRight = corners[3];
-
-            return (bottomLeft + bottomRight) / 2f;
-        }
-
-        public void SetSpawner(PuzzleSpawner spawner)
-        {
-            _spawner = spawner;
-        }
-
-        public PuzzleGameManager GetPuzzleGameManager()
-        {
-            return _spawner.GetPuzzleGameManager();
+            var corners = new Vector3[4];
+            Rect.GetWorldCorners(corners);
+            return (corners[1] + corners[2]) / 2f;
         }
     }
 }

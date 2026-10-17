@@ -19,6 +19,7 @@ venv/
 .venv/
 env/
 *.egg-info/
+Build/
 
 # ── Unity (страховка; основные правила в llm-exorcist/.gitignore) ────────────
 llm-exorcist/[Ll]ibrary/

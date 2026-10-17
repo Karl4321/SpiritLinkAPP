@@ -21,7 +21,11 @@ class TransformerClassifier(BaseClassifier):
         if name:
             self.name = name
         self._tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
-        self._model = AutoModelForSequenceClassification.from_pretrained(str(model_path))
+        # eager вместо sdpa: быстрые CUDA-ядра внимания падают на GPU,
+        # которые установленный PyTorch не поддерживает (FATAL: kernel fmha_cutlass...)
+        self._model = AutoModelForSequenceClassification.from_pretrained(
+            str(model_path), attn_implementation="eager"
+        )
         self._model.to(DEVICE).eval()
 
     def classify(self, text: str) -> int:

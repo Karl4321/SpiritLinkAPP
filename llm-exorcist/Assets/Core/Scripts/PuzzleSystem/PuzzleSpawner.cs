@@ -3,57 +3,29 @@ using UnityEngine;
 
 namespace Core.Scripts.PuzzleSystem
 {
+    /// <summary>Место в панели блоков, где лежит один блок и куда он возвращается.</summary>
     public class PuzzleSpawner : MonoBehaviour
     {
         [SerializeField] private GameObject _puzzleItemPrefab;
 
+        public PuzzleGameManager Manager { get; private set; }
         public PuzzleItem SpawnedPuzzle { get; private set; }
 
-        public PuzzleGameManager PuzzleGameManager { private get; set; }
-
-        private void OnEnable()
+        public void Initialize(PuzzleGameManager manager, PuzzleItemDataStruct data)
         {
-            PuzzleItem.OnPuzzleReturnedToSpawner += PuzzleItem_OnPuzzleReturnedToSpawner;
-        }
-
-        private void OnDisable()
-        {
-            PuzzleItem.OnPuzzleReturnedToSpawner += PuzzleItem_OnPuzzleReturnedToSpawner;
-        }
-
-        public void CreatePuzzle(PuzzleItemDataStruct puzzleItemDataStruct)
-        {
-            if (SpawnedPuzzle != null)
-            {
-                Debug.LogError("There is already a puzzle in this spawner");
-                return;
-            }
+            Manager = manager;
 
             var puzzle = Instantiate(_puzzleItemPrefab, transform).GetComponent<PuzzleItem>();
-            puzzle.SetSpawner(this);
-            puzzle.Initialize(puzzleItemDataStruct.isActive, puzzleItemDataStruct.indexInSequence,
-                            puzzleItemDataStruct.puzzleText, puzzleItemDataStruct.puzzleShortText, puzzleItemDataStruct.puzzleInfo);
-            InstantiatePuzzleContainer(puzzle, transform.position, transform);
-
+            puzzle.Initialize(this, data);
             SpawnedPuzzle = puzzle;
+
+            Restore(puzzle);
         }
 
-
-        private void PuzzleItem_OnPuzzleReturnedToSpawner(PuzzleItem puzzle, PuzzleSpawner spawner)
+        /// <summary>Кладёт блок обратно в спавнер (в собственном контейнере).</summary>
+        public void Restore(PuzzleItem puzzle)
         {
-            if (spawner != this) return;
-
-            InstantiatePuzzleContainer(puzzle, transform.position, transform);
-        }
-
-        private GameObject InstantiatePuzzleContainer(PuzzleItem nestedPuzzle, Vector3 position, Transform parent = null)
-        {
-            return PuzzleGameManager.InstantiateContainer(new PuzzleItem[] { nestedPuzzle }, position, parent);
-        }
-
-        public PuzzleGameManager GetPuzzleGameManager()
-        {
-            return PuzzleGameManager;
+            Manager.InstantiateContainer(new[] { puzzle }, transform.position, transform);
         }
     }
 }

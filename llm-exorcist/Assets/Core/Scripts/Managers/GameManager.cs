@@ -41,16 +41,6 @@ public class GameManager : MonoBehaviour
         _fadeScreenCoroutine = StartCoroutine(_fadeScreen.Appear(1.5f));
     }
 
-    private void RestartPanel_OnRestartPanelOpened(object sender, EventArgs e)
-    {
-        _canBePaused = false;
-    }
-
-    private void StartForMenu_OnMenuButtonContainerAppear(object sender, EventArgs e)
-    {
-        GameStateManager.State = GameState.MainMenu;
-    }
-
     private void InputManager_OnPauseAction(object sender, EventArgs e)
     {
         if (SceneManager.GetActiveScene().name != SceneInfo.MAIN_MENU_SCENE)

@@ -199,7 +199,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c8e042e168f47e4448bef20a03922a51, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _totalActivePuzzles: 3
   _puzzleCanvas: {fileID: 5500553030156101361}
   _spawnerSpaceTransform: {fileID: 2063381739700262708}
   _containerPrefab: {fileID: 3960441331919951696, guid: 07a9dc5f15dff544190878e6d67cc9ce, type: 3}
