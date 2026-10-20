@@ -8,6 +8,7 @@
   4. Иначе → LLM
 """
 
+import asyncio
 import logging
 from dataclasses import dataclass
 
@@ -37,7 +38,14 @@ class ProcessingPipeline:
         # В игре используется один классификатор сложности — остальные не загружаем
         self.level_classifier = DIFFICULTY_CLASSIFIERS[settings.GAME_DIFFICULTY]()
 
-    def process(self, text: str, level: str) -> PipelineResult:
+    async def aclose(self) -> None:
+        await self.llm_client.aclose()
+
+    async def process(self, text: str, level: str) -> PipelineResult:
+        """
+        Обрабатывает запрос, не блокируя event loop: инференс моделей уходит в потоки,
+        а ожидание LLM — обычный await. Пока один игрок ждёт ответ, остальные обслуживаются.
+        """
         category = settings.LEVEL_TO_CATEGORY.get(level)
         if category is None:
             allowed = ", ".join(settings.LEVEL_TO_CATEGORY)
@@ -50,34 +58,36 @@ class ProcessingPipeline:
                 self.passwords.rotate(category)
                 return PipelineResult("", passed=True)
 
-            if self._classify(self.general_bert, text) == 0:
-                return PipelineResult(self._ask_llm(text, category, password))
+            if await self._classify(self.general_bert, text) == 0:
+                return PipelineResult(await self._ask_llm(text, category, password))
 
-            if self._classify(self.category_classifiers[category], text, ("не целевая категория", "целевая категория")) == 0:
+            if await self._classify(
+                self.category_classifiers[category], text, ("не целевая категория", "целевая категория")
+            ) == 0:
                 return PipelineResult(
                     f"Категория вашего запроса не соответствует выбранной "
                     f"(вы выбрали категорию {category}). "
                     f"Попробуйте выбрать другую категорию или переформулировать запрос."
                 )
 
-            if self._classify(self.level_classifier, text) == 1:
+            if await self._classify(self.level_classifier, text) == 1:
                 return PipelineResult(
                     f"Модель ({self.level_classifier.get_name()}) поняла, что запрос опасный "
                     f"и его нужно усилить. Попробуйте обойти защиту этого уровня."
                 )
 
-            return PipelineResult(self._ask_llm(text, category, password))
+            return PipelineResult(await self._ask_llm(text, category, password))
 
         except Exception as e:
             logger.exception("Ошибка обработки запроса")
             return PipelineResult(f"Сервис временно недоступен: {e}")
 
     @staticmethod
-    def _classify(classifier: BaseClassifier, text: str, verdicts=("безопасно", "опасно")) -> int:
-        """Запускает классификатор и пишет в консоль, какая модель что решила."""
-        result = classifier.classify(text)
+    async def _classify(classifier: BaseClassifier, text: str, verdicts=("безопасно", "опасно")) -> int:
+        """Запускает классификатор в потоке и пишет в консоль, какая модель что решила."""
+        result = await asyncio.to_thread(classifier.classify, text)
         logger.info("[%s] -> %s", classifier.get_name(), verdicts[result])
         return result
 
-    def _ask_llm(self, query: str, category: int, password: str) -> str:
-        return self.llm_client.get_response(query, ghost_id=category, current_password=password)
+    async def _ask_llm(self, query: str, category: int, password: str) -> str:
+        return await self.llm_client.get_response(query, ghost_id=category, current_password=password)

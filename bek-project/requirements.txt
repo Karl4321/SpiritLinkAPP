@@ -15,8 +15,8 @@ scikit-learn==1.7.1   # версия, которой обучены модели
 # Data processing
 pandas>=2.1
 
-# HTTP requests
-requests>=2.31
+# HTTP-клиент для запросов к Ollama (асинхронный)
+httpx>=0.27
 
 # Utilities
 pydantic>=2.5

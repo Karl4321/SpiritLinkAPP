@@ -12,5 +12,5 @@ class Dictionary(BaseClassifier):
         raw = settings.BANNED_WORDS_PATH.read_text(encoding="utf-8")
         self.banned_words = [w.strip() for w in raw.split(", ") if w.strip()]
 
-    def classify(self, text: str) -> int:
+    def _predict(self, text: str) -> int:
         return int(any(word in text for word in self.banned_words))

@@ -28,7 +28,7 @@ class TransformerClassifier(BaseClassifier):
         )
         self._model.to(DEVICE).eval()
 
-    def classify(self, text: str) -> int:
+    def _predict(self, text: str) -> int:
         inputs = self._tokenizer(
             clean_for_bert(text),
             truncation=True,
@@ -77,5 +77,5 @@ class CategoryClassifier(TransformerClassifier):
         else:
             super().__init__(model_path, settings.CATEGORY_TOKENIZER)
 
-    def classify(self, text: str) -> int:
-        return 1 if self._stub else super().classify(text)
+    def _predict(self, text: str) -> int:
+        return 1 if self._stub else super()._predict(text)

@@ -20,6 +20,8 @@ public class MessageSpawner : MonoBehaviour
         public string text;
     }
 
+    private const int RequestTimeoutSeconds = 150;
+
     public static event Action OnChatEnded;
 
     public bool IsRequestInProgress { get; private set; } = false;
@@ -115,6 +117,9 @@ public class MessageSpawner : MonoBehaviour
             };
 
             www.downloadHandler = new DownloadHandlerBuffer();
+            // Без таймаута зависший сервер навсегда блокирует поле ввода (по умолчанию ожидание бесконечное).
+            // Больше, чем таймаут LLM на сервере (120 с), чтобы сервер успел ответить текстом ошибки.
+            www.timeout = RequestTimeoutSeconds;
 
             yield return www.SendWebRequest();
 

@@ -1,6 +1,7 @@
 """Базовые абстракции классификаторов."""
 
 import logging
+import threading
 from abc import ABC, abstractmethod
 
 import torch
@@ -28,13 +29,28 @@ _log_device()
 
 
 class BaseClassifier(ABC):
-    """Классификатор запросов: 1 — вредоносный, 0 — безопасный."""
+    """
+    Классификатор запросов: 1 — вредоносный, 0 — безопасный.
+
+    Наследники реализуют _predict. classify() вызывает его под замком: быстрые токенизаторы HF
+    и общая модель на GPU небезопасны при одновременных вызовах из нескольких потоков,
+    а на одном GPU параллельный инференс всё равно выполняется последовательно.
+    """
 
     name: str = ""
 
+    def __new__(cls, *args, **kwargs):
+        obj = super().__new__(cls)
+        obj._lock = threading.Lock()
+        return obj
+
     @abstractmethod
-    def classify(self, text: str) -> int:
+    def _predict(self, text: str) -> int:
         ...
+
+    def classify(self, text: str) -> int:
+        with self._lock:
+            return self._predict(text)
 
     def get_name(self) -> str:
         return self.name or type(self).__name__

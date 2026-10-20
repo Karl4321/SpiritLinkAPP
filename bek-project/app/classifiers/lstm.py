@@ -61,7 +61,7 @@ class LSTM(BaseClassifier):
         ids += [0] * (self.max_length - len(ids))
         return torch.tensor(ids, dtype=torch.long).unsqueeze(0).to(DEVICE)
 
-    def classify(self, text: str) -> int:
+    def _predict(self, text: str) -> int:
         with torch.no_grad():
             predicted = self.model(self._encode(text)).argmax(dim=1).cpu().numpy()
         return 1 if self.label_encoder.inverse_transform(predicted)[0] == "unsafe" else 0

@@ -18,7 +18,7 @@ class TF_IDF(BaseClassifier):
         self.vectorizer = data["vectorizer"]
         self.label_encoder = data["label_encoder"]
 
-    def classify(self, text: str) -> int:
+    def _predict(self, text: str) -> int:
         features = self.vectorizer.transform([clean_for_tfidf(text)]).toarray()
         label = self.label_encoder.inverse_transform(self.clf.predict(features))[0]
         return 1 if str(label) == "unsafe" else 0

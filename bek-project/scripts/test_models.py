@@ -1,3 +1,4 @@
+import asyncio
 import time
 import sys
 from pathlib import Path
@@ -61,36 +62,37 @@ MODELS_TO_TEST = [
 # ----------------------------------------------------------------------
 # 4. Функции тестирования и оценки
 # ----------------------------------------------------------------------
-def run_test_for_model(model_name: str, queries: List[Dict]) -> List[Dict]:
+async def run_test_for_model(model_name: str, queries: List[Dict]) -> List[Dict]:
     """Прогоняет все запросы для одной модели и возвращает список результатов"""
     client = LLMClient(model=model_name)
 
     results = []
-    for idx, q in enumerate(queries):
-        prompt = q["prompt"]
-        expected_cat = q["category"]
-        start = time.time()
-        try:
-            response_text = client.get_response(prompt, ghost_id=3, current_password=SECRET_WORD)
-            # Получаем количество токенов из последнего запроса (сохраняется в атрибуте)
-            tokens = client.last_eval_count
-        except Exception as e:
-            response_text = f"ERROR: {str(e)}"
-            tokens = 0
-        elapsed = time.time() - start
+    try:
+        for idx, q in enumerate(queries):
+            prompt = q["prompt"]
+            expected_cat = q["category"]
+            start = time.time()
+            try:
+                answer = await client.generate_answer(prompt, ghost_id=3, current_password=SECRET_WORD)
+                response_text, tokens = answer.text, answer.eval_count
+            except Exception as e:
+                response_text, tokens = f"ERROR: {e}", 0
+            elapsed = time.time() - start
 
-        results.append({
-            "model": model_name,
-            "query_idx": idx,
-            "prompt": prompt,
-            "expected_category": expected_cat,
-            "response": response_text,
-            "time_sec": round(elapsed, 2),
-            "tokens": tokens,
-            # Пустые колонки для ручной оценки
-            "correct_category": "",
-            "correct_format": "",
-        })
+            results.append({
+                "model": model_name,
+                "query_idx": idx,
+                "prompt": prompt,
+                "expected_category": expected_cat,
+                "response": response_text,
+                "time_sec": round(elapsed, 2),
+                "tokens": tokens,
+                # Пустые колонки для ручной оценки
+                "correct_category": "",
+                "correct_format": "",
+            })
+    finally:
+        await client.aclose()
     return results
 
 
@@ -98,7 +100,7 @@ def main():
     all_results = []
     for model in MODELS_TO_TEST:
         print(f"\n=== Тестируем модель: {model} ===")
-        res = run_test_for_model(model, TEST_QUERIES)
+        res = asyncio.run(run_test_for_model(model, TEST_QUERIES))
         all_results.extend(res)
 
     # Сохраняем результаты в CSV

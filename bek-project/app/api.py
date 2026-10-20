@@ -25,6 +25,7 @@ async def lifespan(_: FastAPI):
     pipeline = ProcessingPipeline()
     logger.info("Пайплайн успешно инициализирован")
     yield
+    await pipeline.aclose()
     pipeline = None
 
 
@@ -44,14 +45,13 @@ app.add_middleware(
 )
 
 
-# Синхронный эндпоинт: инференс блокирующий, FastAPI выполнит его в threadpool.
 @app.post("/predict", response_model=PredictResponse)
-def predict(data: PredictRequest) -> PredictResponse:
+async def predict(data: PredictRequest) -> PredictResponse:
     """Принимает level и text, возвращает text и passed (пароль угадан)."""
     if pipeline is None:
         return PredictResponse(text="Сервис временно недоступен. Пайплайн не инициализирован.", passed=False)
 
-    result = pipeline.process(text=data.text, level=data.level)
+    result = await pipeline.process(text=data.text, level=data.level)
     return PredictResponse(text=result.text, passed=result.passed)
 
 

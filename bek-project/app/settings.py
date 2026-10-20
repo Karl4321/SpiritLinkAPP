@@ -40,6 +40,8 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma4:31b-cloud")
 OLLAMA_API_URL = os.getenv("OLLAMA_API_URL", "https://ollama.com/api/generate")
 LLM_MAX_TOKENS = 3000
 LLM_TIMEOUT_SEC = 120
+# Сколько запросов к Ollama может выполняться одновременно (остальные ждут в очереди)
+LLM_MAX_CONCURRENCY = int(os.getenv("LLM_MAX_CONCURRENCY", "16"))
 
 # ── Игра ─────────────────────────────────────────────────────────────────────
 # Игровой уровень → категория классификатора
